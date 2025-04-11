@@ -36,3 +36,9 @@ jobs:
                 sudo git reset --hard origin/main
               fi
             fi
+            
+            # Corriger les permissions des fichiers
+            echo "Correction des permissions des fichiers"
+            sudo find "${{ secrets.PROJECT_PATH }}" -type f -exec chmod 644 {} \;
+            sudo find "${{ secrets.PROJECT_PATH }}" -type d -exec chmod 755 {} \;
+            sudo chown -R www-data:www-data "${{ secrets.PROJECT_PATH }}"
