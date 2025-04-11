@@ -42,18 +42,30 @@ jobs:
               cp Index.html index.html
             fi
             
-            # Créer une configuration Nginx simple
-            echo "Création d'une configuration Nginx simple..."
-            sudo tee /etc/nginx/conf.d/qapple.quentindurant.com.conf > /dev/null << 'EOF'
+            # Diagnostiquer la configuration Nginx existante
+            echo "Vérification de la configuration Nginx..."
+            sudo find /etc/nginx/ -type f -name "*.conf" -exec grep -l "listen" {} \; | xargs cat 2>/dev/null | grep -E "listen\s+[0-9]+" || echo "Aucun port trouvé"
+            
+            # Déterminer le port utilisé par Nginx
+            NGINX_PORT=$(sudo netstat -tlnp | grep nginx | grep -oE ':[0-9]+' | cut -d':' -f2 | head -n1 || echo "8080")
+            echo "Port Nginx détecté: $NGINX_PORT"
+            
+            # Créer une configuration Nginx adaptée
+            echo "Création d'une configuration Nginx..."
+            sudo tee /etc/nginx/conf.d/qapple.quentindurant.com.conf > /dev/null << EOF
             server {
-                listen 80;
+                listen $NGINX_PORT;
                 server_name qapple.quentindurant.com;
                 root ${{ secrets.PROJECT_PATH }};
                 index index.html Index.html;
                 
                 location / {
-                    try_files $uri $uri/ =404;
+                    try_files \$uri \$uri/ =404;
                 }
+                
+                # Logs spécifiques pour ce site
+                access_log /var/log/nginx/qapple.access.log;
+                error_log /var/log/nginx/qapple.error.log;
             }
             EOF
             
@@ -61,5 +73,19 @@ jobs:
             echo "Test de la configuration Nginx..."
             sudo nginx -t && sudo systemctl reload nginx
             
-            # Afficher les permissions du répertoire
-            ls -la
+            # Vérifier les logs d'erreur spécifiques
+            echo "Vérification des logs d'erreur..."
+            sudo tail -n 20 /var/log/nginx/error.log || true
+            sudo tail -n 20 /var/log/nginx/qapple.error.log 2>/dev/null || true
+            
+            # Vérifier si le site est accessible localement
+            echo "Test d'accès local au site..."
+            curl -I http://localhost:$NGINX_PORT/index.html || true
+            
+            # Vérifier les permissions
+            echo "Permissions du répertoire:"
+            ls -la ${{ secrets.PROJECT_PATH }}
+            
+            # Vérifier la résolution DNS
+            echo "Test de résolution DNS:"
+            host qapple.quentindurant.com || nslookup qapple.quentindurant.com || true
