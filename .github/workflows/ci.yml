@@ -43,15 +43,15 @@ jobs:
             sudo find "${{ secrets.PROJECT_PATH }}" -type d -exec chmod 755 {} \;
             sudo chown -R www-data:www-data "${{ secrets.PROJECT_PATH }}"
             
-            # Copier et activer la configuration Nginx
-            echo "Configuration de Nginx"
-            # Modifier le chemin dans le fichier de configuration
-            sudo sed -i "s|/chemin/vers/votre/site|${{ secrets.PROJECT_PATH }}|g" "${{ secrets.PROJECT_PATH }}/nginx.conf"
-            # Copier la configuration
-            sudo cp "${{ secrets.PROJECT_PATH }}/nginx.conf" "/etc/nginx/sites-available/qapple.quentindurant.com"
-            # Créer un lien symbolique si nécessaire
-            sudo ln -sf "/etc/nginx/sites-available/qapple.quentindurant.com" "/etc/nginx/sites-enabled/qapple.quentindurant.com"
-            # Vérifier la configuration
-            sudo nginx -t
-            # Redémarrer Nginx
-            sudo systemctl restart nginx
+            # Créer un fichier .htaccess pour essayer de résoudre le problème 403
+            echo "Création d'un fichier .htaccess"
+            cat > "${{ secrets.PROJECT_PATH }}/.htaccess" << 'EOL'
+            # Autoriser l'accès à tous les fichiers
+            <Files *>
+              Order Allow,Deny
+              Allow from all
+            </Files>
+            
+            # Définir index.html comme page d'accueil
+            DirectoryIndex index.html Index.html
+            EOL
