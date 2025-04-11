@@ -37,74 +37,29 @@ jobs:
             chmod -R 755 .
             find . -type f -exec chmod 644 {} \;
             
-            # Créer un fichier index.html en minuscules (important pour certains serveurs web)
+            # Créer un fichier index.html en minuscules
             if [ -f "Index.html" ] && [ ! -f "index.html" ]; then
               cp Index.html index.html
             fi
             
-            # Vérifier la configuration Nginx existante
-            echo "Vérification des configurations Nginx existantes..."
-            sudo find /etc/nginx/ -type f -name "*.conf" -exec grep -l "qapple.quentindurant.com" {} \; || true
-            
-            # Lister les sites activés
-            echo "Sites Nginx activés:"
-            ls -la /etc/nginx/sites-enabled/ || true
-            
-            # Vérifier les configurations de serveur dans nginx.conf
-            echo "Contenu de nginx.conf:"
-            cat /etc/nginx/nginx.conf || true
-            
-            # Vérifier si une configuration existe pour le domaine
-            NGINX_CONF_FILE=$(sudo find /etc/nginx/ -type f -name "*.conf" -exec grep -l "qapple.quentindurant.com" {} \; | head -n 1)
-            
-            if [ -n "$NGINX_CONF_FILE" ]; then
-              echo "Configuration trouvée dans $NGINX_CONF_FILE:"
-              cat "$NGINX_CONF_FILE"
-              
-              # Modifier la configuration existante
-              echo "Mise à jour de la configuration existante..."
-              sudo sed -i "s|root .*;|root ${{ secrets.PROJECT_PATH }};|" "$NGINX_CONF_FILE"
-              sudo sed -i "s|index .*;|index index.html Index.html;|" "$NGINX_CONF_FILE"
-            else
-              echo "Aucune configuration trouvée pour qapple.quentindurant.com, création d'une nouvelle..."
-              
-              # Créer un fichier de configuration temporaire
-              cat > /tmp/qapple.conf << EOL
-server {
-    listen 80;
-    server_name qapple.quentindurant.com;
-    root ${{ secrets.PROJECT_PATH }};
-    index index.html Index.html;
-    
-    location / {
-        try_files \$uri \$uri/ =404;
-    }
-}
-EOL
-              
-              # Copier la configuration
-              sudo cp /tmp/qapple.conf /etc/nginx/conf.d/qapple.quentindurant.com.conf
-            fi
+            # Créer une configuration Nginx simple
+            echo "Création d'une configuration Nginx simple..."
+            sudo tee /etc/nginx/conf.d/qapple.quentindurant.com.conf > /dev/null << 'EOF'
+            server {
+                listen 80;
+                server_name qapple.quentindurant.com;
+                root ${{ secrets.PROJECT_PATH }};
+                index index.html Index.html;
+                
+                location / {
+                    try_files $uri $uri/ =404;
+                }
+            }
+            EOF
             
             # Tester et recharger Nginx
             echo "Test de la configuration Nginx..."
-            sudo nginx -t
+            sudo nginx -t && sudo systemctl reload nginx
             
-            if [ $? -eq 0 ]; then
-              echo "Configuration Nginx valide, rechargement..."
-              sudo systemctl reload nginx
-            else
-              echo "Erreur dans la configuration Nginx, vérifiez les logs."
-            fi
-            
-            # Vérifier les logs d'erreur
-            echo "Dernières erreurs du serveur Nginx:"
-            sudo tail -n 20 /var/log/nginx/error.log || true
-            
-            # Vérifier les permissions du répertoire
-            echo "Permissions du répertoire du projet:"
-            ls -la ${{ secrets.PROJECT_PATH }}
-            
-            # Vérifier si le site est accessible localement
-            echo "Test d'accès local au site:"
-            curl -I http://localhost/index.html || true
+            # Afficher les permissions du répertoire
+            ls -la
