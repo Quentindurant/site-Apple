@@ -16,6 +16,23 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
-            cd ${{ secrets.PROJECT_PATH }}
-            sudo git config --global --add safe.directory ${{ secrets.PROJECT_PATH }}
-            sudo git pull
+            # Vérifier si le répertoire existe
+            if [ ! -d "${{ secrets.PROJECT_PATH }}" ]; then
+              echo "Le répertoire n'existe pas, création et clonage du dépôt"
+              mkdir -p "${{ secrets.PROJECT_PATH }}"
+              cd "${{ secrets.PROJECT_PATH }}"
+              git clone https://github.com/${{ github.repository }}.git .
+            else
+              cd "${{ secrets.PROJECT_PATH }}"
+              # Vérifier si c'est un dépôt Git valide
+              if [ ! -d ".git" ]; then
+                echo "Le répertoire n'est pas un dépôt Git valide, initialisation"
+                rm -rf * .[^.]*
+                git clone https://github.com/${{ github.repository }}.git .
+              else
+                echo "Mise à jour du dépôt existant"
+                sudo git config --global --add safe.directory "${{ secrets.PROJECT_PATH }}"
+                sudo git fetch --all
+                sudo git reset --hard origin/main
+              fi
+            fi
