@@ -60,3 +60,38 @@ jobs:
             </body>
             </html>
             EOL
+            
+            # Créer un fichier test.html très simple pour diagnostiquer les problèmes
+            echo "Création d'un fichier test.html pour diagnostic"
+            sudo tee "${{ secrets.PROJECT_PATH }}/test.html" > /dev/null << 'EOL'
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Test Page</title>
+            </head>
+            <body>
+                <h1>Test Page</h1>
+                <p>Si vous voyez cette page, le serveur web fonctionne correctement.</p>
+            </body>
+            </html>
+            EOL
+            
+            # Vérifier la configuration du serveur
+            echo "Vérification de la configuration du serveur"
+            if command -v nginx > /dev/null; then
+              echo "Nginx est installé"
+              sudo nginx -t
+              echo "Status de Nginx:"
+              sudo systemctl status nginx || true
+            elif command -v apache2 > /dev/null; then
+              echo "Apache est installé"
+              sudo apache2ctl -t
+              echo "Status d'Apache:"
+              sudo systemctl status apache2 || true
+            else
+              echo "Ni Nginx ni Apache ne semblent être installés"
+            fi
+            
+            # Vérifier les ports ouverts
+            echo "Ports ouverts sur le serveur:"
+            sudo netstat -tulpn | grep -E ':(80|443)' || true
