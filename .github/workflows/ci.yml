@@ -43,15 +43,20 @@ jobs:
             sudo find "${{ secrets.PROJECT_PATH }}" -type d -exec chmod 755 {} \;
             sudo chown -R www-data:www-data "${{ secrets.PROJECT_PATH }}"
             
-            # Créer un fichier .htaccess pour essayer de résoudre le problème 403
-            echo "Création d'un fichier .htaccess"
-            cat > "${{ secrets.PROJECT_PATH }}/.htaccess" << 'EOL'
-            # Autoriser l'accès à tous les fichiers
-            <Files *>
-              Order Allow,Deny
-              Allow from all
-            </Files>
-            
-            # Définir index.html comme page d'accueil
-            DirectoryIndex index.html Index.html
+            # Créer un fichier index.html simple à la racine du site
+            echo "Création d'un fichier index.html simple"
+            sudo tee "${{ secrets.PROJECT_PATH }}/index.html" > /dev/null << 'EOL'
+            <!DOCTYPE html>
+            <html lang="fr">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Redirection</title>
+                <meta http-equiv="refresh" content="0;url=Index.html">
+            </head>
+            <body>
+                <p>Redirection en cours...</p>
+                <script>window.location.href = "Index.html";</script>
+            </body>
+            </html>
             EOL
