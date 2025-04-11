@@ -1,14 +1,19 @@
 name: CI
 
-on: [push]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   deploy:
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Push to server
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Deploy to server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -16,82 +21,18 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
-            # Vérifier si le répertoire existe
-            if [ ! -d "${{ secrets.PROJECT_PATH }}" ]; then
-              echo "Le répertoire n'existe pas, création et clonage du dépôt"
-              mkdir -p "${{ secrets.PROJECT_PATH }}"
-              cd "${{ secrets.PROJECT_PATH }}"
-              git clone https://github.com/${{ github.repository }}.git .
-            else
-              cd "${{ secrets.PROJECT_PATH }}"
-              # Vérifier si c'est un dépôt Git valide
-              if [ ! -d ".git" ]; then
-                echo "Le répertoire n'est pas un dépôt Git valide, initialisation"
-                rm -rf * .[^.]*
-                git clone https://github.com/${{ github.repository }}.git .
-              else
-                echo "Mise à jour du dépôt existant"
-                sudo git config --global --add safe.directory "${{ secrets.PROJECT_PATH }}"
-                sudo git fetch --all
-                sudo git reset --hard origin/main
-              fi
-            fi
+            # Créer le répertoire si nécessaire
+            mkdir -p ${{ secrets.PROJECT_PATH }}
             
-            # Corriger les permissions des fichiers
-            echo "Correction des permissions des fichiers"
-            sudo find "${{ secrets.PROJECT_PATH }}" -type f -exec chmod 644 {} \;
-            sudo find "${{ secrets.PROJECT_PATH }}" -type d -exec chmod 755 {} \;
-            sudo chown -R www-data:www-data "${{ secrets.PROJECT_PATH }}"
+            # Aller dans le répertoire du projet
+            cd ${{ secrets.PROJECT_PATH }}
             
-            # Créer un fichier index.html simple à la racine du site
-            echo "Création d'un fichier index.html simple"
-            sudo tee "${{ secrets.PROJECT_PATH }}/index.html" > /dev/null << 'EOL'
-            <!DOCTYPE html>
-            <html lang="fr">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Redirection</title>
-                <meta http-equiv="refresh" content="0;url=Index.html">
-            </head>
-            <body>
-                <p>Redirection en cours...</p>
-                <script>window.location.href = "Index.html";</script>
-            </body>
-            </html>
-            EOL
+            # Supprimer le contenu existant
+            rm -rf *
             
-            # Créer un fichier test.html très simple pour diagnostiquer les problèmes
-            echo "Création d'un fichier test.html pour diagnostic"
-            sudo tee "${{ secrets.PROJECT_PATH }}/test.html" > /dev/null << 'EOL'
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Test Page</title>
-            </head>
-            <body>
-                <h1>Test Page</h1>
-                <p>Si vous voyez cette page, le serveur web fonctionne correctement.</p>
-            </body>
-            </html>
-            EOL
+            # Cloner le dépôt
+            git clone https://github.com/${{ github.repository }}.git .
             
-            # Vérifier la configuration du serveur
-            echo "Vérification de la configuration du serveur"
-            if command -v nginx > /dev/null; then
-              echo "Nginx est installé"
-              sudo nginx -t
-              echo "Status de Nginx:"
-              sudo systemctl status nginx || true
-            elif command -v apache2 > /dev/null; then
-              echo "Apache est installé"
-              sudo apache2ctl -t
-              echo "Status d'Apache:"
-              sudo systemctl status apache2 || true
-            else
-              echo "Ni Nginx ni Apache ne semblent être installés"
-            fi
-            
-            # Vérifier les ports ouverts
-            echo "Ports ouverts sur le serveur:"
-            sudo netstat -tulpn | grep -E ':(80|443)' || true
+            # Définir les permissions
+            chmod -R 755 .
+            find . -type f -exec chmod 644 {} \;
